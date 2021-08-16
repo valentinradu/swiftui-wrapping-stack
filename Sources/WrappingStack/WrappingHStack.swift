@@ -5,14 +5,13 @@ import SwiftUI
 /// An HStack that grows vertically when single line overflows
 @available(iOS 14, macOS 11, *)
 public struct WrappingHStack<Data: RandomAccessCollection, ID, Content: View>: View where ID == Data.Element.ID, Data.Element: Identifiable {
-    
     public let data: Data
     public var content: (Data.Element) -> Content
     public var id: KeyPath<Data.Element, ID>
     public var alignment: Alignment
     public var horizontalSpacing: CGFloat
     public var verticalSpacing: CGFloat
-    public var separator: Optional<() -> AnyView> = nil
+    public var separator: (() -> AnyView)?
     
     @State private var sizes: [ID: CGSize] = [:]
     @State private var calculatesSizesKeys: Set<ID> = []
@@ -93,7 +92,7 @@ public struct WrappingHStack<Data: RandomAccessCollection, ID, Content: View>: V
                 lineLength += 1
             } else {
                 width = elementWidth
-                let lineEnd = data.index(lineStart, offsetBy:lineLength)
+                let lineEnd = data.index(lineStart, offsetBy: lineLength)
                 result.append(lineStart ..< lineEnd)
                 lineLength = 0
                 lineStart = lineEnd
@@ -129,12 +128,17 @@ public struct WrappingHStack<Data: RandomAccessCollection, ID, Content: View>: V
             // Calculating sizes
             VStack {
                 ForEach(dataForCalculatingSizes, id: id) { d in
-                    content(d)
-                        .onSizeChange { size in
-                            let key = d[keyPath: id]
-                            sizes[key] = size
-                            calculatesSizesKeys.insert(key)
+                    Group {
+                        if d.id != dataForCalculatingSizes.first?.id {
+                            separator?()
                         }
+                        content(d)
+                    }
+                    .onSizeChange { size in
+                        let key = d[keyPath: id]
+                        sizes[key] = size
+                        calculatesSizesKeys.insert(key)
+                    }
                 }
             }
         }
