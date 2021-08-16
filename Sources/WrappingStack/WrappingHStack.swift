@@ -4,7 +4,7 @@ import SwiftUI
 
 /// An HStack that grows vertically when single line overflows
 @available(iOS 14, macOS 11, *)
-public struct WrappingHStack<Data: RandomAccessCollection, ID: Hashable, Content: View>: View {
+public struct WrappingHStack<Data: RandomAccessCollection, ID, Content: View>: View where ID == Data.Element.ID, Data.Element: Identifiable {
     
     public let data: Data
     public var content: (Data.Element) -> Content
@@ -12,6 +12,7 @@ public struct WrappingHStack<Data: RandomAccessCollection, ID: Hashable, Content
     public var alignment: Alignment
     public var horizontalSpacing: CGFloat
     public var verticalSpacing: CGFloat
+    public var separator: Optional<() -> AnyView> = nil
     
     @State private var sizes: [ID: CGSize] = [:]
     @State private var calculatesSizesKeys: Set<ID> = []
@@ -57,6 +58,26 @@ public struct WrappingHStack<Data: RandomAccessCollection, ID: Hashable, Content
         self.verticalSpacing = verticalSpacing
     }
     
+    /// Creates a new WrappingHStack
+    ///
+    /// - Parameters:
+    ///   - alignment: horizontal and vertical alignment. Vertical alignment is applied to every row
+    ///   - horizontalSpacing: horizontal spacing between elements
+    ///   - verticalSpacing: vertical spacing between the lines
+    ///   - create: a method that creates an array of elements
+    public init(
+        alignment: Alignment = .center,
+        horizontalSpacing: CGFloat = 0,
+        verticalSpacing: CGFloat = 0,
+        @ViewBuilder content create: () -> ForEach<Data, ID, Content>
+    ) {
+        self.init(id: \.id,
+                  alignment: alignment,
+                  horizontalSpacing: horizontalSpacing,
+                  verticalSpacing: verticalSpacing,
+                  content: create)
+    }
+    
     private func splitIntoLines(maxWidth: CGFloat) -> [Range<Data.Index>] {
         var width: CGFloat = 0
         var result: [Range<Data.Index>] = []
@@ -95,6 +116,9 @@ public struct WrappingHStack<Data: RandomAccessCollection, ID: Hashable, Content
                     ForEach(Array(splitted.enumerated()), id: \.offset) { list in
                         HStack(alignment: alignment.vertical, spacing: horizontalSpacing) {
                             ForEach(data[list.element], id: id) {
+                                if $0.id != data[list.element].first?.id {
+                                    separator?()
+                                }
                                 content($0)
                             }
                         }
@@ -115,32 +139,21 @@ public struct WrappingHStack<Data: RandomAccessCollection, ID: Hashable, Content
             }
         }
     }
-}
-
-@available(iOS 14, macOS 11, *)
-extension WrappingHStack where ID == Data.Element.ID, Data.Element: Identifiable {
-    /// Creates a new WrappingHStack
-    ///
-    /// - Parameters:
-    ///   - alignment: horizontal and vertical alignment. Vertical alignment is applied to every row
-    ///   - horizontalSpacing: horizontal spacing between elements
-    ///   - verticalSpacing: vertical spacing between the lines
-    ///   - create: a method that creates an array of elements
-    public init(
-        alignment: Alignment = .center,
-        horizontalSpacing: CGFloat = 0,
-        verticalSpacing: CGFloat = 0,
-        @ViewBuilder content create: () -> ForEach<Data, ID, Content>
-    ) {
-        self.init(id: \.id,
-                  alignment: alignment,
-                  horizontalSpacing: horizontalSpacing,
-                  verticalSpacing: verticalSpacing,
-                  content: create)
+    
+    public func separator<Content: View>(@ViewBuilder _ content: @escaping () -> Content) -> Self {
+        var copy = self
+        copy.separator = { AnyView(content()) }
+        return copy
     }
 }
 
 #if DEBUG
+
+extension String: Identifiable {
+    public var id: String {
+        return self
+    }
+}
 
 @available(iOS 14, macOS 11, *)
 struct WrappingHStack_Previews: PreviewProvider {
