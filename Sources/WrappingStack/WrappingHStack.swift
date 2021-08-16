@@ -128,7 +128,7 @@ public struct WrappingHStack<Data: RandomAccessCollection, ID, Content: View>: V
             // Calculating sizes
             VStack {
                 ForEach(dataForCalculatingSizes, id: id) { d in
-                    Group {
+                    HStack(spacing: horizontalSpacing) {
                         if d.id != dataForCalculatingSizes.first?.id {
                             separator?()
                         }
